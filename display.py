@@ -98,7 +98,7 @@ for i in range(0, len(simulation_data), 5):
 		elif i_current == 1:
 			vTemp = value
 		else:
-			if abs(uTemp) + abs(vTemp) + abs(value) > 0.01:
+			if abs(uTemp) + abs(vTemp) + abs(value) != 0:
 				xE.append(x_current)
 				yE.append(y_current)
 				zE.append(z_current)
@@ -111,7 +111,7 @@ for i in range(0, len(simulation_data), 5):
 		elif i_current == 1:
 			vTemp = value
 		else:
-			if abs(uTemp) + abs(vTemp) + abs(value) > 0.01:
+			if abs(uTemp) + abs(vTemp) + abs(value) != 0:
 				xB.append(x_current)
 				yB.append(y_current)
 				zB.append(z_current)

@@ -1,8 +1,8 @@
 {
 	"constants": {
-		"e0":1,
-		"m0":1,
-		"dt":0.005,
+		"e0":8.85e-12,
+		"m0":1.26e-6,
+		"dt":2.5e-10,
 		"steps":200,
 		"time_culling_factor":10,
 		"space_culling_factor":1,
@@ -13,7 +13,7 @@
 			"type":"wire",
 			"axis":"z",
 			"location":[10,10],
-			"angular_frequency":25.13,
+			"angular_frequency":628318.531,
 			"amplitude":2
 		}
 	]

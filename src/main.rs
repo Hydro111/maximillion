@@ -1,4 +1,4 @@
-use std::{array, fs::File, io::{self, Write}, ops, process::ExitCode, rc::Rc};
+use std::{array, fmt, fs::File, io::{self, Write}, ops, process::ExitCode};
 use json::Value;
 use serde_json as json;
 
@@ -137,6 +137,22 @@ impl ops::Div<f32> for Field3Vec {
         ] }
     }
 }
+impl ops::Div<f32> for &Field3Vec {
+    type Output = Field3Vec;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Field3Vec { components: vec![
+                self.components[0] / rhs,
+                self.components[1] / rhs,
+                self.components[2] / rhs,
+        ] }
+    }
+}
+impl fmt::Display for Field3Vec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{}, {}, {}>", self.components[0], self.components[1], self.components[2])
+    }
+}
 
 impl ops::Mul<Field3Vec> for f32 {
     type Output = Field3Vec;
@@ -146,8 +162,8 @@ impl ops::Mul<Field3Vec> for f32 {
     }
 }
 
-trait CurrentObject: Clone {
-    fn currrent_density(self, t: f32) -> Field3Vec;
+trait CurrentObject {
+    fn currrent_density(&self, t: f32) -> Field3Vec;
 }
 
 
@@ -158,8 +174,8 @@ struct Wire {
     direction: Field3Vec,
 }
 impl CurrentObject for Wire {
-    fn currrent_density(self, t: f32) -> Field3Vec {
-        self.amplitude * (t * self.angular_frequency).sin() * self.direction
+    fn currrent_density(&self, t: f32) -> Field3Vec {
+        self.amplitude * (t * self.angular_frequency).sin() * self.direction.clone()
     }
 }
 
@@ -167,7 +183,7 @@ impl CurrentObject for Wire {
 #[derive(Clone)]
 struct Vaccum;
 impl CurrentObject for Vaccum {
-    fn currrent_density(self, t: f32) -> Field3Vec {
+    fn currrent_density(&self, t: f32) -> Field3Vec {
         Field3Vec::default()
     }
 }
@@ -197,6 +213,17 @@ fn generate_blank_latice() -> LaticeType {
             ))
         ))
     ))
+}
+
+fn update_progress_bar(val: u32, max: u32, message:&str) -> () {
+    eprint!(
+        "\r{} ({}/{}) ({:.1}%) [{: <10}]",
+        message,
+        val,
+        max,
+        100.0 * val as f32 / max as f32,
+        format!("{:#<1$}", "", (10 * val / max) as usize)
+    )
 }
 
 
@@ -253,12 +280,13 @@ fn main() -> ExitCode {
     let mut current = generate_blank_latice();
     let mut next = generate_blank_latice();
     
-    let mut field_objects: Vec<Rc<dyn CurrentObject>> = vec![Rc::new(Vaccum{})];
+    let mut field_objects: Vec<Box<dyn CurrentObject>> = vec![Box::new(Vaccum{})];
 
     let mut current_field_object_index:usize = 1;
 
     // Configure initial conditions
     for object in json_data["objects"].as_array().unwrap() {
+        let mut field_object: Box<dyn CurrentObject>;
         let object_type = object["type"].as_str().unwrap();
         if object_type == "point" {
             let e = object["E"].as_array().unwrap();
@@ -330,37 +358,37 @@ fn main() -> ExitCode {
                         object_index: current_field_object_index,
                         ..current[location[1].as_i64().unwrap() as usize][location[0].as_i64().unwrap() as usize][i as usize].clone()
                     };
-                    let field_object = Wire{ 
+                    field_object = Box::new(Wire{ 
                         amplitude: object["amplitude"].as_f64().unwrap() as f32,
                         angular_frequency: object["angular_frequency"].as_f64().unwrap() as f32,
                         direction: Field3Vec{components: vec![1.0, 0.0, 0.0]}
-                    };
-                    field_objects.push(Rc::new(field_object));
+                    });
+                    field_objects.push(field_object);
                 } else if axis == "y" {
                     current[location[1].as_i64().unwrap() as usize][i as usize][location[0].as_i64().unwrap() as usize] = SpaceData {
                         object_index: current_field_object_index,
                         ..current[location[1].as_i64().unwrap() as usize][i as usize][location[0].as_i64().unwrap() as usize].clone()
                     };
-                    let field_object = Wire{ 
+                    field_object = Box::new(Wire{ 
                         amplitude: object["amplitude"].as_f64().unwrap() as f32,
                         angular_frequency: object["angular_frequency"].as_f64().unwrap() as f32,
                         direction: Field3Vec{components: vec![0.0, 1.0, 0.0]}
-                    };
-                    field_objects.push(Rc::new(field_object));
+                    });
+                    field_objects.push(field_object);
                 } else if axis == "z" {
                     current[i as usize][location[1].as_i64().unwrap() as usize][location[0].as_i64().unwrap() as usize] = SpaceData {
                         object_index: current_field_object_index,
                         ..current[i as usize][location[1].as_i64().unwrap() as usize][location[0].as_i64().unwrap() as usize].clone()
                     };
-                    let field_object = Wire{ 
+                    field_object = Box::new(Wire{ 
                         amplitude: object["amplitude"].as_f64().unwrap() as f32,
                         angular_frequency: object["angular_frequency"].as_f64().unwrap() as f32,
                         direction: Field3Vec{components: vec![0.0, 0.0, 1.0]}
-                    };
-                    field_objects.push(Rc::new(field_object));
+                    });
+                    field_objects.push(field_object);
                 }
             }
-
+            current_field_object_index += 1;
         }
     }
     /*for i in 2..(LATICE_DENSITY * SIMULATION_SIDE_LENGTH -2) {
@@ -424,10 +452,15 @@ fn main() -> ExitCode {
     // Begin simulation (1 step is used for the initial conditions)
     let mut steps_left = steps-1;
     let mut field_object_currents: Vec<Field3Vec> = vec![];
-    for field_object in field_objects {
+    for field_object in &field_objects {
         field_object_currents.push(field_object.currrent_density(0.0));
     }
+        
     while steps_left > 0 {
+
+        for (i, field_object) in field_objects.iter().enumerate() {
+            field_object_currents[i] = field_object.currrent_density((steps - steps_left) as f32 * dt);
+        }
 
         for (z, plane) in current.iter().enumerate() {
             for (y, row) in plane.iter().enumerate() {
@@ -534,9 +567,16 @@ fn main() -> ExitCode {
 
                     let new_node = SpaceData {
                         b: &node.b - &(dt * curl_e),
-                        e: &node.e + &(dt * (curl_b/ (e0 * m0))),
-                        ..SpaceData::default()
+                        e: &node.e + &(dt * ((curl_b / (e0 * m0)) - (&field_object_currents[node.object_index] / e0))),
+                        object_index: node.object_index,
                     };
+
+                    /*if node.object_index > 0 {
+                        eprintln!("i: {}", node.object_index);
+                        eprintln!("step: {}", steps - steps_left);
+                        eprintln!("J: {}", &field_object_currents[node.object_index] / e0);
+                    }*/
+                    
 
                     next[z][y][x] = new_node.clone();
 
@@ -568,17 +608,16 @@ fn main() -> ExitCode {
                             let _ = out_writer.write_all(&[2]);
                         }
                     }
-                    
-                    
                 }
             }
         }
         
 
         (current, next) = (next, current);
-
         steps_left -= 1;
+        update_progress_bar(steps - steps_left, steps, "Running simulation... ");
     }
+    eprintln!();
 
     eprintln!("Simulation Done");
 
