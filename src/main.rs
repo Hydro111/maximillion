@@ -325,8 +325,8 @@ fn main() -> ExitCode {
             let b_y = b[1].as_f64().unwrap() as f32;
             let b_z = b[2].as_f64().unwrap() as f32;
 
-            for i in 1..(LATICE_DENSITY * SIMULATION_SIDE_LENGTH) {
-                for j in 1..(LATICE_DENSITY * SIMULATION_SIDE_LENGTH) {
+            for i in 0..(LATICE_DENSITY * SIMULATION_SIDE_LENGTH) {
+                for j in 0..(LATICE_DENSITY * SIMULATION_SIDE_LENGTH) {
                     if axis == "x" {
                         current[i as usize][j as usize][location] = SpaceData {
                             e: Field3Vec{ components:vec![e_x, e_y, e_z] },
@@ -352,7 +352,7 @@ fn main() -> ExitCode {
         } else if object_type == "wire" {
             let axis = object["axis"].as_str().unwrap();
             let location = object["location"].as_array().unwrap();
-            for i in 1..(LATICE_DENSITY * SIMULATION_SIDE_LENGTH) {
+            for i in 0..(LATICE_DENSITY * SIMULATION_SIDE_LENGTH) {
                 if axis == "x" {
                     current[location[1].as_i64().unwrap() as usize][location[0].as_i64().unwrap() as usize][i as usize] = SpaceData {
                         object_index: current_field_object_index,
@@ -420,6 +420,7 @@ fn main() -> ExitCode {
         b: Field3Vec{ components:vec![0.0, 0.0, 0.0] },
     };*/
 
+    //let mut totalDivergence:f32 = 0.0;
 
     // Send initial conditions through pipeline
     for (z, plane) in current.iter().enumerate() {
@@ -565,6 +566,11 @@ fn main() -> ExitCode {
                         derivative_b_x.components[1] - derivative_b_y.components[0]
                     ] };
 
+
+                    //totalDivergence += (derivative_e_x.components[0] + derivative_e_y.components[1] + derivative_e_z.components[2]).abs();
+                    //totalDivergence += (derivative_b_x.components[0] + derivative_b_y.components[1] + derivative_b_z.components[2]).abs();
+
+
                     let new_node = SpaceData {
                         b: &node.b - &(dt * curl_e),
                         e: &node.e + &(dt * ((curl_b / (e0 * m0)) - (&field_object_currents[node.object_index] / e0))),
@@ -611,7 +617,9 @@ fn main() -> ExitCode {
                 }
             }
         }
-        
+        //eprintln!("Divergence: {}", totalDivergence);
+
+        //totalDivergence = 0.0;
 
         (current, next) = (next, current);
         steps_left -= 1;

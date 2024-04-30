@@ -1,0 +1,28 @@
+{
+	"constants": {
+		"e0":8.85e-12,
+		"m0":1.26e-6,
+		"dt":2.5e-11,
+		"steps":200,
+		"time_culling_factor":10,
+		"space_culling_factor":1,
+		"boundary_condition":"clip"
+	},
+	"objects": [
+		{
+			"type":"plane",
+			"axis":"x",
+			"location":10,
+			"E": [
+				0.0,
+				0.0,
+				1.0
+			],
+			"B": [
+				0.0,
+				0.0,
+				0.0
+			]
+		}
+	]
+}

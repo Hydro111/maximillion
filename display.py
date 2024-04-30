@@ -195,7 +195,7 @@ for i in range(len(fig.data)//2):
 	step = dict(
 		method="update",
 		args=[{"visible": [False] * len(fig.data)},
-			  {"title": "Time: " + str(round(i * dt, 6))}],  # layout attribute
+			  {"title": "Time: " + str(round(i * dt, int(4 - m.log10(dt))))}],  # layout attribute
 	)
 	step["args"][0]["visible"][2*i] = True
 	step["args"][0]["visible"][2*i + 1] = True
