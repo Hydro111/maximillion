@@ -1,0 +1,1 @@
+%~dp0\simulate.exe | python %~dp0\display.py
